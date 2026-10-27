@@ -41,14 +41,71 @@ export default async function handler(request, response) {
     return
   }
 
-  const isProduction = process.env.NODE_ENV === 'production'
+  const pollinationsApiKey = process.env.POLLINATIONS_API_KEY
+  const usePollinations = process.env.NODE_ENV === 'production' || Boolean(pollinationsApiKey)
+  if (usePollinations) {
+    if (!pollinationsApiKey) {
+      return response.status(503).json({
+        error: 'The Pollinations API is not configured.',
+      })
+    }
+
+    try {
+      const completion = await fetch('https://gen.pollinations.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${pollinationsApiKey}`,
+        },
+        signal: AbortSignal.timeout(120_000),
+        body: JSON.stringify({
+          model: process.env.POLLINATIONS_MODEL || 'openai/gpt-5.4-nano',
+          stream: false,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages,
+          ],
+          max_tokens: 260,
+        }),
+      })
+
+      const responseText = await completion.text()
+      let data
+      try {
+        data = responseText ? JSON.parse(responseText) : null
+      } catch {
+        data = null
+      }
+
+      if (!completion.ok) {
+        const providerError = typeof data?.error === 'string'
+          ? data.error
+          : data?.error?.message
+        return response.status(502).json({
+          error: providerError || `Pollinations request failed (HTTP ${completion.status}).`,
+        })
+      }
+
+      const reply = data?.choices?.[0]?.message?.content?.trim()
+      if (!reply) {
+        return response.status(502).json({
+          error: 'Pollinations returned an empty response.',
+        })
+      }
+
+      return response.status(200).json({ reply })
+    } catch (error) {
+      const timedOut = error instanceof Error && error.name === 'TimeoutError'
+      return response.status(503).json({
+        error: timedOut
+          ? 'Pollinations did not respond in time. Please try again shortly.'
+          : 'Could not reach Pollinations. Please try again shortly.',
+      })
+    }
+  }
+
   const configuredBaseUrl = process.env.OLLAMA_BASE_URL
   const ollamaApiKey = process.env.OLLAMA_API_KEY
-  if (isProduction && (!configuredBaseUrl || !ollamaApiKey)) {
-    return response.status(503).json({
-      error: 'The hosted Ollama server is not configured.',
-    })
-  }
 
   try {
     const baseUrl = (configuredBaseUrl || 'http://127.0.0.1:11434').replace(/\/+$/, '')
@@ -57,12 +114,6 @@ export default async function handler(request, response) {
       ollamaUrl = new URL(baseUrl)
     } catch {
       return response.status(503).json({ error: 'The hosted Ollama server URL is invalid.' })
-    }
-
-    if (isProduction && ollamaUrl.protocol !== 'https:') {
-      return response.status(503).json({
-        error: 'The hosted Ollama server must use HTTPS.',
-      })
     }
 
     const model = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b'

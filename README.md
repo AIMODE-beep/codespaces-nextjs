@@ -25,10 +25,37 @@ For local development, Nova connects to Ollama on the same environment. Install
 Keep Ollama running while using Nova. The model runs on the Codespace, so responses
 use its compute and storage.
 
-## Public deployment
+## Vercel deployment with Pollinations
 
-Nova can be deployed to Vercel, but production needs two services in addition to
-the website:
+Production chat uses the Pollinations OpenAI-compatible API. In Vercel, add
+`POLLINATIONS_API_KEY` as a server-side environment variable and optionally set
+`POLLINATIONS_MODEL` to an available text model. The default is
+`openai/gpt-5.4-nano`. Never expose the secret key in browser code or commit it
+to Git.
+
+Pollinations model requests use the account's Pollen balance and may incur
+charges. Check the key's permissions, balance, and spending limits before
+enabling public chat. User messages and extracted document text are sent to
+Pollinations for answers.
+
+Production also requires an Upstash Redis database with REST access. Set
+`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel to enforce a
+shared limit of 10 requests per minute per visitor IP. If the limiter is not
+configured or available, the API rejects chat requests rather than allowing
+unprotected public usage.
+
+After adding the environment variables, deploy or redeploy the Vercel project.
+The deployment uses Vercel for the website and Pollinations for hosted AI
+requests; each service may have separate costs and usage limits.
+
+## Legacy Ollama deployment notes
+
+The following describes the previous self-hosted Ollama production setup. It is
+not compatible with the current production chat route; use the Pollinations
+integration above. Ollama is retained only as a local development fallback.
+
+Nova can be deployed to Vercel, but this legacy setup needs two services in
+addition to the website:
 
 1. A persistent Ollama server running the model. The Ollama instance currently
    installed in a Codespace is not a production server and will not be reachable
@@ -74,4 +101,4 @@ sections. Nova includes up to 20,000 extracted characters with your question.
 PDF support reads selectable text from up to the first 40 pages; scanned PDFs
 that need OCR are not supported. Uploaded files are processed temporarily on the
 server and removed after extraction. Extracted text stays in the current browser
-conversation and is sent to the configured Ollama model when you ask Nova about it.
+conversation and is sent to the configured AI provider when you ask Nova about it.
