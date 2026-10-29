@@ -22,16 +22,24 @@ For local development, Nova connects to Ollama on the same environment. Install
 ~/.local/ollama-runtime/bin/ollama pull qwen2.5:1.5b
 ```
 
-Keep Ollama running while using Nova. The model runs on the Codespace, so responses
-use its compute and storage.
+Keep Ollama running while using Nova. For screenshot questions, install a vision
+model too:
+
+```
+~/.local/ollama-runtime/bin/ollama pull llava:7b
+```
+
+Nova automatically switches between `OLLAMA_MODEL` for text and
+`OLLAMA_VISION_MODEL` (default `llava:7b`) for image attachments. The models run
+on the Codespace, so responses use its compute and storage.
 
 ## Vercel deployment with Pollinations
 
-Production chat uses the Pollinations OpenAI-compatible API. In Vercel, add
-`POLLINATIONS_API_KEY` as a server-side environment variable and optionally set
-`POLLINATIONS_MODEL` to an available text model. The default is
-`openai/gpt-5.4-nano`. Never expose the secret key in browser code or commit it
-to Git.
+Production chat uses the Pollinations OpenAI-compatible API when
+`POLLINATIONS_API_KEY` is configured. In Vercel, add it as a server-side
+environment variable and optionally set `POLLINATIONS_MODEL` to an available
+text model. The default is `openai/gpt-5.4-nano`. Never expose the secret key in
+browser code or commit it to Git.
 
 Pollinations model requests use the account's Pollen balance and may incur
 charges. Check the key's permissions, balance, and spending limits before
@@ -45,17 +53,34 @@ configured or available, the API rejects chat requests rather than allowing
 unprotected public usage.
 
 After adding the environment variables, deploy or redeploy the Vercel project.
-The deployment uses Vercel for the website and Pollinations for hosted AI
-requests; each service may have separate costs and usage limits.
+The deployment uses Vercel and Pollinations, with optional Ollama failover;
+each service may have separate costs and usage limits.
 
-## Legacy Ollama deployment notes
+## Music generation
 
-The following describes the previous self-hosted Ollama production setup. It is
-not compatible with the current production chat route; use the Pollinations
-integration above. Ollama is retained only as a local development fallback.
+Set `MUSIC_GENERATION_URL` and, if required, `MUSIC_GENERATION_API_KEY` in the
+server environment to connect a music generation provider. Nova sends the prompt,
+genre, output channel selection, duration, and quality to that provider and
+expects audio bytes or a JSON response with a downloadable audio URL, such as
+`audio_url`. Until a provider URL is configured, music generation is unavailable.
+Generated audio can be played in Nova and downloaded in its matching format.
 
-Nova can be deployed to Vercel, but this legacy setup needs two services in
-addition to the website:
+Music requests do not have an app-side rate limit. The provider can still enforce
+its own quotas, availability, and billing, and an unauthenticated public app can
+incur provider costs. Keep provider credentials server-side.
+
+## Optional hosted Ollama failover
+
+If Pollinations is unavailable or returns an error, the chat API can fall back
+to a hosted Ollama server. If `POLLINATIONS_API_KEY` is not set, configured
+Ollama is used as the production provider without trying Pollinations. This
+requires a separate, persistent Ollama server; the Ollama instance in a
+Codespace is not reachable from Vercel.
+
+For production failover, set `OLLAMA_BASE_URL` to the server's HTTPS URL,
+`OLLAMA_MODEL` to an installed model, and optionally `OLLAMA_API_KEY` for the
+authenticated reverse proxy. Keep the model server available and do not expose
+its unauthenticated Ollama port to the internet.
 
 1. A persistent Ollama server running the model. The Ollama instance currently
    installed in a Codespace is not a production server and will not be reachable
@@ -88,9 +113,62 @@ limit. Hosting the model publicly also requires monitoring server capacity and
 keeping the proxy secret private. Vercel and the model server are separate
 services and may have separate costs and usage limits.
 
+Keeping both providers configured on independent services can reduce outages,
+but continuous AI responses cannot be guaranteed if every configured provider
+is unavailable or its credentials, balance, or rate limits prevent requests.
+
 Nova's chat prompt is designed to support school learning with step-by-step
 explanations, study questions, and writing feedback. Students should verify
 answers and follow their school's rules for AI assistance.
+
+## Appearance settings
+
+Open **Settings** in the chat header to choose the Notebook, Chalkboard,
+Library, or Lavender theme, customize the accent color, and turn off the subtle
+animated notebook background. You can also choose a personal GIF, JPG, PNG, or
+WebP background up to 1 MB. Appearance preferences and the selected image stay
+in that browser's local storage; they are not sent to Nova or shared across
+devices. Restore the default appearance from Settings at any time.
+
+Choose **Fast**, **Balanced**, or **Deep thinking** in the message composer to
+adjust response detail. This changes the answer guidance and output length for
+the configured AI provider; it does not switch to a different underlying model.
+Hover over or focus a sent message and choose its edit control to revise that
+prompt and retry the conversation from that point.
+
+## Code mode
+
+Open **Code mode** from the navigation menu to generate, edit, copy, download,
+and preview code. Choose a common language or enter a custom one; Nova can
+generate code for any language. HTML and CSS have a static browser preview.
+Standalone JavaScript runs in a temporary Web Worker with network APIs disabled
+and a five-second execution limit. Other languages need an appropriate local or
+project runtime; Nova includes setup and run instructions when generating code.
+
+## Webpage access
+
+Enable **Web access** in the Nova composer, then include one or more public
+`http://` or `https://` URLs in your message. Nova reads up to three webpages,
+uses up to 20,000 characters per page, and treats webpage text as untrusted
+reference material. Source URLs are requested in the answer when that content is
+used.
+
+Nova blocks credentials in URLs, local/private hosts, private network IP ranges,
+unsupported file types, and unsafe redirects. Web content is not saved after the
+request, but URLs and extracted text are sent to the configured AI provider with
+the question.
+
+## Browser workspace
+
+Open **Browser workspace** from the composer tools menu. Nova opens Chromium in a
+live, headless browser session that can navigate public webpages, go back,
+reload, scroll, click, type, and press keyboard keys. Click positions in the
+browser screenshot to control the page manually.
+
+Private/local addresses, credential URLs, unsupported redirect targets, and
+private-network IP ranges are blocked. Browser activity is temporary and the
+session closes when the workspace is closed. Playwright must be installed and
+its compatible Chromium runtime downloaded on the server for this feature.
 
 ## Study documents
 
