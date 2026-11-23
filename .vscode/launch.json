@@ -10,7 +10,12 @@
         "runtimeExecutable": "npm",
         "runtimeArgs": [
           "run",
-          "dev"
+          "dev",
+          "--",
+          "--hostname",
+          "0.0.0.0",
+          "--port",
+          "3000"
         ],
         "skipFiles": [
           "<node_internals>/**"

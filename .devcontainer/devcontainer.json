@@ -5,9 +5,10 @@
   },
   "waitFor": "onCreateCommand",
   "updateContentCommand": "npm install && npm run build",
-  "postCreateCommand": "",
+  "postCreateCommand": "bash .devcontainer/start-services.sh",
+  "postStartCommand": "bash .devcontainer/start-services.sh",
   "postAttachCommand": {
-    "server": "npm run dev"
+    "ollama": "bash .devcontainer/start-services.sh"
   },
   "customizations": {
     "codespaces": {

@@ -18,7 +18,7 @@ export default async function handler(request, response) {
     url.searchParams.set('limit', String(limit))
     const upstream = await fetch(url, {
       headers: {
-        'User-Agent': 'Nova-Assistant/1.0',
+        'User-Agent': 'Pixel-Assistant/1.0',
         Accept: 'application/json',
       },
       signal: AbortSignal.timeout(12_000),

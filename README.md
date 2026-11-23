@@ -14,7 +14,7 @@ npm run dev
 
 ## Local AI model
 
-For local development, Nova connects to Ollama on the same environment. Install
+For local development, Pixel connects to Ollama on the same environment. Install
 [Ollama](https://ollama.com/download), then start its server and download the default model:
 
 ```
@@ -22,29 +22,28 @@ For local development, Nova connects to Ollama on the same environment. Install
 ~/.local/ollama-runtime/bin/ollama pull qwen2.5:1.5b
 ```
 
-Keep Ollama running while using Nova. For screenshot questions, install a vision
+Keep Ollama running while using Pixel. For screenshot questions, install a vision
 model too:
 
 ```
 ~/.local/ollama-runtime/bin/ollama pull llava:7b
 ```
 
-Nova automatically switches between `OLLAMA_MODEL` for text and
+Pixel automatically switches between `OLLAMA_MODEL` for text and
 `OLLAMA_VISION_MODEL` (default `llava:7b`) for image attachments. The models run
 on the Codespace, so responses use its compute and storage.
 
-## Vercel deployment with Pollinations
+## Vercel deployment with OpenRouter
 
-Production chat uses the Pollinations OpenAI-compatible API when
-`POLLINATIONS_API_KEY` is configured. In Vercel, add it as a server-side
-environment variable and optionally set `POLLINATIONS_MODEL` to an available
-text model. The default is `openai/gpt-5.4-nano`. Never expose the secret key in
-browser code or commit it to Git.
+For hosted chat fallback, configure `OPENROUTER_API_KEY` as a server-side
+environment variable. Optionally set `OPENROUTER_MODEL`; the default is
+`openrouter/free`, which lets OpenRouter route to an available free model.
+Set `OPENROUTER_SITE_URL` and `OPENROUTER_APP_NAME` to identify the app.
+Never expose the key in browser code or commit it to Git.
 
-Pollinations model requests use the account's Pollen balance and may incur
-charges. Check the key's permissions, balance, and spending limits before
-enabling public chat. User messages and extracted document text are sent to
-Pollinations for answers.
+OpenRouter usage is subject to the selected model's limits, provider availability,
+and account billing or free credits. User messages and extracted document text
+are sent to OpenRouter only when the configured Ollama provider fails.
 
 Production also requires an Upstash Redis database with REST access. Set
 `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel to enforce a
@@ -53,28 +52,28 @@ configured or available, the API rejects chat requests rather than allowing
 unprotected public usage.
 
 After adding the environment variables, deploy or redeploy the Vercel project.
-The deployment uses Vercel and Pollinations, with optional Ollama failover;
-each service may have separate costs and usage limits.
+The deployment uses configured Ollama first, with optional OpenRouter fallback.
+Each service may have separate costs and usage limits.
 
 ## Music generation
 
 Set `MUSIC_GENERATION_URL` and, if required, `MUSIC_GENERATION_API_KEY` in the
-server environment to connect a music generation provider. Nova sends the prompt,
+server environment to connect a music generation provider. Pixel sends the prompt,
 genre, output channel selection, duration, and quality to that provider and
 expects audio bytes or a JSON response with a downloadable audio URL, such as
 `audio_url`. Until a provider URL is configured, music generation is unavailable.
-Generated audio can be played in Nova and downloaded in its matching format.
+Generated audio can be played in Pixel and downloaded in its matching format.
 
 Music requests do not have an app-side rate limit. The provider can still enforce
 its own quotas, availability, and billing, and an unauthenticated public app can
 incur provider costs. Keep provider credentials server-side.
 
-## Optional hosted Ollama failover
+## Optional hosted Ollama and OpenRouter fallback
 
-If Pollinations is unavailable or returns an error, the chat API can fall back
-to a hosted Ollama server. If `POLLINATIONS_API_KEY` is not set, configured
-Ollama is used as the production provider without trying Pollinations. This
-requires a separate, persistent Ollama server; the Ollama instance in a
+If configured Ollama is unavailable, Pixel can fall back to OpenRouter only when
+`OPENROUTER_API_KEY` is set. Without it, Pixel returns a clear Ollama
+availability error instead of contacting another hosted provider. Hosted
+Ollama requires a separate, persistent server; the Ollama instance in a
 Codespace is not reachable from Vercel.
 
 For production failover, set `OLLAMA_BASE_URL` to the server's HTTPS URL,
@@ -117,7 +116,7 @@ Keeping both providers configured on independent services can reduce outages,
 but continuous AI responses cannot be guaranteed if every configured provider
 is unavailable or its credentials, balance, or rate limits prevent requests.
 
-Nova's chat prompt is designed to support school learning with step-by-step
+Pixel's chat prompt is designed to support school learning with step-by-step
 explanations, study questions, and writing feedback. Students should verify
 answers and follow their school's rules for AI assistance.
 
@@ -127,7 +126,7 @@ Open **Settings** in the chat header to choose the Notebook, Chalkboard,
 Library, or Lavender theme, customize the accent color, and turn off the subtle
 animated notebook background. You can also choose a personal GIF, JPG, PNG, or
 WebP background up to 1 MB. Appearance preferences and the selected image stay
-in that browser's local storage; they are not sent to Nova or shared across
+in that browser's local storage; they are not sent to Pixel or shared across
 devices. Restore the default appearance from Settings at any time.
 
 Choose **Fast**, **Balanced**, or **Deep thinking** in the message composer to
@@ -139,28 +138,28 @@ prompt and retry the conversation from that point.
 ## Code mode
 
 Open **Code mode** from the navigation menu to generate, edit, copy, download,
-and preview code. Choose a common language or enter a custom one; Nova can
+and preview code. Choose a common language or enter a custom one; Pixel can
 generate code for any language. HTML and CSS have a static browser preview.
 Standalone JavaScript runs in a temporary Web Worker with network APIs disabled
 and a five-second execution limit. Other languages need an appropriate local or
-project runtime; Nova includes setup and run instructions when generating code.
+project runtime; Pixel includes setup and run instructions when generating code.
 
 ## Webpage access
 
-Enable **Web access** in the Nova composer, then include one or more public
-`http://` or `https://` URLs in your message. Nova reads up to three webpages,
+Enable **Web access** in the Pixel composer, then include one or more public
+`http://` or `https://` URLs in your message. Pixel reads up to three webpages,
 uses up to 20,000 characters per page, and treats webpage text as untrusted
 reference material. Source URLs are requested in the answer when that content is
 used.
 
-Nova blocks credentials in URLs, local/private hosts, private network IP ranges,
+Pixel blocks credentials in URLs, local/private hosts, private network IP ranges,
 unsupported file types, and unsafe redirects. Web content is not saved after the
 request, but URLs and extracted text are sent to the configured AI provider with
 the question.
 
 ## Browser workspace
 
-Open **Browser workspace** from the composer tools menu. Nova opens Chromium in a
+Open **Browser workspace** from the composer tools menu. Pixel opens Chromium in a
 live, headless browser session that can navigate public webpages, go back,
 reload, scroll, click, type, and press keyboard keys. Click positions in the
 browser screenshot to control the page manually.
@@ -175,8 +174,8 @@ its compatible Chromium runtime downloaded on the server for this feature.
 Upload PDF, DOCX, TXT, or Markdown documents up to 4 MB using the paperclip
 button. You can also paste text directly into the message box (up to 20,000
 characters). For larger documents, split out only the relevant pages or
-sections. Nova includes up to 20,000 extracted characters with your question.
+sections. Pixel includes up to 20,000 extracted characters with your question.
 PDF support reads selectable text from up to the first 40 pages; scanned PDFs
 that need OCR are not supported. Uploaded files are processed temporarily on the
 server and removed after extraction. Extracted text stays in the current browser
-conversation and is sent to the configured AI provider when you ask Nova about it.
+conversation and is sent to the configured AI provider when you ask Pixel about it.

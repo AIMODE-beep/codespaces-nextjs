@@ -11,7 +11,7 @@ function resolveWorkspacePath(relativePath = '') {
   const normalized = String(relativePath).replace(/\\/g, '/').replace(/^\/+/, '')
   const resolved = path.resolve(workspaceRoot, normalized)
   if (resolved !== workspaceRoot && !resolved.startsWith(`${workspaceRoot}${path.sep}`)) {
-    throw new Error('Path is outside the Nova workspace.')
+    throw new Error('Path is outside the Pixel workspace.')
   }
   return resolved
 }

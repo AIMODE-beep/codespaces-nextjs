@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownToLine, ArrowUp, Box, Check, ChevronDown, Code2, Copy, ExternalLink, FileText, Flame, Globe2, Heart, Image as ImageIcon, Languages, LocateFixed, MapPin, Menu, Microscope, Minus, Music2, Navigation, Paperclip, Pencil, Play, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Trash2, Trophy, Video, WandSparkles, X, Zap } from 'lucide-react'
+import { ArrowDownToLine, ArrowUp, Box, Check, ChevronDown, Cloud, CloudSun, Code2, Copy, Droplets, ExternalLink, FileText, Flame, Globe2, Heart, Image as ImageIcon, Languages, LocateFixed, MapPin, Menu, Microscope, Minus, Music2, Navigation, Paperclip, Pencil, Play, Plus, RotateCcw, Search, Settings2, Sparkles, Star, Sun, Sunrise, Sunset, Thermometer, Trash2, Trophy, Video, WandSparkles, Wind, X, Zap } from 'lucide-react'
 import styles from '../styles/home.module.css'
 
 const models = [
-  { value: 'nova-fast', label: 'Nova Fast', description: 'Quick everyday answers' },
-  { value: 'nova-balanced', label: 'Nova', description: 'Best for most tasks' },
-  { value: 'nova-reasoning', label: 'Nova Reasoning', description: 'Longer, deeper answers' },
+  { value: 'nova-sloth', label: 'Sloth', description: 'Easy and small responses' },
+  { value: 'nova-fast', label: 'Pixel Fast', description: 'Quick everyday answers' },
+  { value: 'nova-balanced', label: 'Pixel', description: 'Best for most tasks' },
+  { value: 'nova-reasoning', label: 'Pixel Reasoning', description: 'Longer, deeper answers' },
+  { value: 'nova-madmax', label: 'Mad Max', description: 'Best thinking capabilities' },
 ]
 const codeLanguages = [
   { value: 'html', label: 'HTML' },
@@ -66,20 +68,42 @@ const languageUnits = [
 const musicGenres = ['Cinematic', 'Ambient', 'Electronic', 'Hip-hop', 'Classical', 'Jazz', 'Rock', 'Pop', 'Lo-fi', 'Orchestral', 'Folk']
 const visualStyles = ['Photorealistic', 'Cinematic', 'Anime', 'Minimal', 'Illustration', '3D render']
 
+function getWeatherDescription(code) {
+  if (code === 0) return 'Clear sky'
+  if ([1, 2].includes(code)) return 'Partly cloudy'
+  if (code === 3) return 'Overcast'
+  if ([45, 48].includes(code)) return 'Foggy'
+  if ([51, 53, 55, 56, 57].includes(code)) return 'Drizzle'
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'Rain'
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Snow'
+  if ([95, 96, 99].includes(code)) return 'Thunderstorm'
+  return 'Variable weather'
+}
+
+function getWeatherIcon(code, isDay = true) {
+  if ([95, 96, 99].includes(code)) return <CloudSun size={24} />
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return <Cloud size={24} />
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return <Droplets size={24} />
+  if (code === 3 || [45, 48].includes(code)) return <Cloud size={24} />
+  if ([1, 2].includes(code)) return <CloudSun size={24} />
+  return isDay ? <Sun size={24} /> : <CloudSun size={24} />
+}
+
 const responseModes = [
   { value: 'fast', label: 'Fast' },
   { value: 'balanced', label: 'Balanced' },
   { value: 'deep', label: 'Deep thinking' },
 ]
 const thinkingMessages = [
-  'Thinking... my tiny robot gears are spinning.',
-  'Hold on, checking the imaginary chalkboard.',
-  'Nova is putting the answer together. Group project energy.',
-  'Thinking, you gotta wait... just a little!',
-  'Almost there. Making this answer make sense.',
+  'Thinking...',
+  'Understanding the question...',
+  'Planning a clear answer...',
+  'Checking the details...',
+  'Writing the response...',
 ]
 
 const preferencesKey = 'nova.appearance'
+const notificationsKey = 'pixel.notificationsEnabled'
 const defaultPreferences = {
   theme: 'notebook',
   accentColor: '#426c5a',
@@ -96,6 +120,79 @@ const backgroundImageLimit = 1024 * 1024
 
 const chatHistoryKey = 'nova-chat-history-v1'
 
+function normalizeHexColor(value, fallback = '#426c5a') {
+  return /^#[0-9a-f]{6}$/i.test(value || '') ? value.toLowerCase() : fallback
+}
+
+function validateDisplayName(value) {
+  const normalized = String(value || '')
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, '')
+    .replace(/[\s'-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+
+  if (normalized.length < 2) return 'Enter a name with at least 2 characters.'
+  if (normalized.length > 50) return 'Your name must be 50 characters or fewer.'
+  if (!/[a-z\u00c0-\u024f\u0400-\u04ff\u0600-\u06ff]/i.test(normalized)) {
+    return 'Enter a real name using letters.'
+  }
+
+  const compact = normalized
+    .replace(/[0]/g, 'o')
+    .replace(/[1!]/g, 'i')
+    .replace(/[3]/g, 'e')
+    .replace(/[4]/g, 'a')
+    .replace(/[5$]/g, 's')
+    .replace(/[7]/g, 't')
+    .replace(/[^a-z]/g, '')
+
+  const blockedTerms = [
+    'ass', 'bitch', 'bastard', 'cock', 'dick', 'fuck', 'shit', 'slut',
+    'whore', 'porn', 'sex', 'nigger', 'nigga', 'fag', 'faggot',
+    'cunt', 'rape', 'retard', 'nazi',
+  ]
+  const nameParts = normalized.split(/[^a-z]+/)
+  const containsBlockedTerm = nameParts.some((part) =>
+    blockedTerms.some((term) => term === 'ass' ? part === term : part.includes(term))
+  ) || compact === 'ass'
+  if (containsBlockedTerm) {
+    return 'Please choose an appropriate name.'
+  }
+
+  return ''
+}
+
+function hexToRgb(value) {
+  const color = normalizeHexColor(value)
+  return {
+    r: Number.parseInt(color.slice(1, 3), 16),
+    g: Number.parseInt(color.slice(3, 5), 16),
+    b: Number.parseInt(color.slice(5, 7), 16),
+  }
+}
+
+function mixHex(first, second, secondWeight) {
+  const a = hexToRgb(first)
+  const b = hexToRgb(second)
+  const weight = Math.min(1, Math.max(0, secondWeight))
+  const channel = (firstChannel, secondChannel) =>
+    Math.round(firstChannel * (1 - weight) + secondChannel * weight)
+  return `#${[channel(a.r, b.r), channel(a.g, b.g), channel(a.b, b.b)]
+    .map((part) => part.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function getContrastTextColor(value) {
+  const { r, g, b } = hexToRgb(value)
+  const toLinear = (channel) => {
+    const srgb = channel / 255
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4
+  }
+  const luminance = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+  return luminance > 0.45 ? '#000000' : '#ffffff'
+}
+
 function getConversationTitle(conversationMessages) {
   const firstUserMessage = conversationMessages.find((message) => message.role === 'user')
   const title = firstUserMessage?.displayText || firstUserMessage?.text || 'New conversation'
@@ -107,6 +204,8 @@ function getSavableMessages(conversationMessages) {
     id: message.id,
     role: message.role,
     text: message.displayText || message.text,
+    ...(message.sources?.length ? { sources: message.sources.slice(0, 5) } : {}),
+    ...(message.webImages?.length ? { webImages: message.webImages.slice(0, 2) } : {}),
     ...(message.attachmentName ? { attachmentName: message.attachmentName } : {}),
     ...(message.attachmentKind ? { attachmentKind: message.attachmentKind } : {}),
     ...(message.attachmentImageUrl ? { attachmentImageUrl: message.attachmentImageUrl } : {}),
@@ -118,7 +217,7 @@ const starterMessages = [
   {
     id: 1,
     role: 'assistant',
-    text: "Hi! I'm Nova, an AI assistant. What can I help you with?",
+    text: "Hi! I'm Pixel, an AI assistant. What can I help you with?",
   },
 ]
 
@@ -280,7 +379,7 @@ function extractCodeNotes(reply, language) {
   return codeBlock ? reply.replace(codeBlock[0], '').trim() : reply.trim()
 }
 
-function extractNovaPatch(reply) {
+function extractPixelPatch(reply) {
   const blocks = Array.from(reply.matchAll(/```nova-patch[ \t]*\r?\n([\s\S]*?)```/gi))
   for (const [, json] of blocks) {
     try {
@@ -303,6 +402,30 @@ function buildStaticPreview(code, language) {
     return `${code.slice(0, endOfHead)}${policy}${code.slice(endOfHead)}`
   }
   return `<!doctype html><html><head>${policy}</head><body>${code}</body></html>`
+}
+
+function buildCodeSandboxDocument(code, language) {
+  if (language === 'html' || language === 'css') return buildStaticPreview(code, language)
+  if (language === 'javascript') {
+    const safeCode = code.replace(/<\/script/gi, '<\\/script')
+    return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'"></head><body style="margin:0;padding:16px;font-family:Consolas,monospace;white-space:pre-wrap;background:#17191a;color:#d4d4d4"><pre id="pixel-output"></pre><script>
+      const output=document.getElementById('pixel-output');
+      const format=(value)=>typeof value==='string'?value:JSON.stringify(value)??String(value);
+      ['log','info','warn','error'].forEach((level)=>{const original=console[level];console[level]=(...values)=>{output.textContent += (level+': '+values.map(format).join(' ')+'\\n'); original(...values)}});
+      try{${safeCode}}catch(error){output.textContent+='error: '+(error instanceof Error?error.message:String(error))+'\\n'}
+    </script></body></html>`
+  }
+  return ''
+}
+
+function buildDefaultSandboxDocument() {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'"></head><body style="margin:0;background:#eef3f7;font-family:'Segoe UI',sans-serif;color:#17212b">
+    <main style="min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 75% 20%,#dcefff 0,#edf4f9 36%,#cbd8e4 100%)">
+      <section style="width:min(520px,82%);padding:28px;border:1px solid rgba(255,255,255,.8);border-radius:18px;background:rgba(255,255,255,.82);box-shadow:0 18px 45px rgba(35,70,110,.16);backdrop-filter:blur(16px)">
+        <small style="color:#5d7185;font-weight:700">PIXEL SANDBOX</small><h1 style="margin:8px 0 10px;font-size:30px">Ready to run code</h1>
+        <p style="margin:0;color:#607184;line-height:1.55">Open HTML, CSS, or JavaScript from Pixel Code and it will appear here in an isolated preview window.</p>
+      </section>
+    </main></body></html>`
 }
 
 function AssistantContent({ text, copyText }) {
@@ -395,6 +518,7 @@ export default function Home() {
   const [draft, setDraft] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [thinkingMessageIndex, setThinkingMessageIndex] = useState(0)
+  const [thinkingElapsed, setThinkingElapsed] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [attachment, setAttachment] = useState(null)
   const [error, setError] = useState('')
@@ -406,11 +530,14 @@ export default function Home() {
   const [browserOpen, setBrowserOpen] = useState(false)
   const [browserUrl, setBrowserUrl] = useState('https://example.com')
   const [browserScreenshot, setBrowserScreenshot] = useState('')
-  const [browserTitle, setBrowserTitle] = useState('Nova browser')
+  const [browserTitle, setBrowserTitle] = useState('Pixel browser')
   const [browserLoading, setBrowserLoading] = useState(false)
   const [browserError, setBrowserError] = useState('')
+  const [browserLive, setBrowserLive] = useState(false)
   const [browserTypingDraft, setBrowserTypingDraft] = useState('')
-  const [browserViewport, setBrowserViewport] = useState({ width: 1280, height: 720 })
+  const [browserViewport, setBrowserViewport] = useState({ width: 3840, height: 2160 })
+  const [browserMode, setBrowserMode] = useState('web')
+  const [browserSandboxHtml, setBrowserSandboxHtml] = useState(buildDefaultSandboxDocument)
   const [mapsOpen, setMapsOpen] = useState(false)
   const [mapQuery, setMapQuery] = useState('')
   const [mapLocation, setMapLocation] = useState({ lat: 40.7128, lon: -74.0060, name: 'New York, United States' })
@@ -418,6 +545,13 @@ export default function Home() {
   const [mapLoading, setMapLoading] = useState(false)
   const [mapError, setMapError] = useState('')
   const [mapZoom, setMapZoom] = useState(12)
+  const [weatherOpen, setWeatherOpen] = useState(false)
+  const [weatherQuery, setWeatherQuery] = useState('New York, United States')
+  const [weatherLocation, setWeatherLocation] = useState({ lat: 40.7128, lon: -74.0060, name: 'New York, United States' })
+  const [weatherResults, setWeatherResults] = useState([])
+  const [weatherData, setWeatherData] = useState(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherError, setWeatherError] = useState('')
   const [languageTeacherOpen, setLanguageTeacherOpen] = useState(false)
   const [teacherLanguage, setTeacherLanguage] = useState('Spanish')
   const [teacherNativeLanguage, setTeacherNativeLanguage] = useState('English')
@@ -442,7 +576,7 @@ export default function Home() {
   const [codeStudioOpen, setCodeStudioOpen] = useState(false)
   const [codeLanguage, setCodeLanguage] = useState('html')
   const [customCodeLanguage, setCustomCodeLanguage] = useState('')
-  const [codeFile, setCodeFile] = useState('<main style="min-height:100vh;display:grid;place-items:center;font-family:sans-serif"><h1>Start building with Nova</h1></main>')
+  const [codeFile, setCodeFile] = useState('<main style="min-height:100vh;display:grid;place-items:center;font-family:sans-serif"><h1>Start building with Pixel</h1></main>')
   const [codeInstruction, setCodeInstruction] = useState('')
   const [previewVersion, setPreviewVersion] = useState(0)
   const [codeRunOutput, setCodeRunOutput] = useState('')
@@ -452,11 +586,26 @@ export default function Home() {
   const [repoAgentContext, setRepoAgentContext] = useState(null)
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editDraft, setEditDraft] = useState('')
+  const [userName, setUserName] = useState('')
+  const [nameDraft, setNameDraft] = useState('')
+  const [namePromptOpen, setNamePromptOpen] = useState(false)
+  const [nameError, setNameError] = useState('')
+  const [identityLoaded, setIdentityLoaded] = useState(false)
   const [preferences, setPreferences] = useState(defaultPreferences)
   const [preferencesLoaded, setPreferencesLoaded] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'unsupported'
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsError, setSettingsError] = useState('')
   const [providerStatus, setProviderStatus] = useState(null)
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false)
+  const [diagnosticIssue, setDiagnosticIssue] = useState('')
+  const [diagnosticStatus, setDiagnosticStatus] = useState(null)
+  const [diagnosticAnalysis, setDiagnosticAnalysis] = useState(null)
+  const [diagnosticRepair, setDiagnosticRepair] = useState(null)
+  const [diagnosticFixing, setDiagnosticFixing] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const bottomRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -468,6 +617,47 @@ export default function Home() {
   const mobileSidebarRef = useRef(null)
   const uploadControllerRef = useRef(null)
   const codeWorkerRef = useRef(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadIdentity() {
+      let savedName = ''
+      try {
+        savedName = window.localStorage.getItem('pixel-user-name')?.trim() || ''
+      } catch {}
+
+      if (savedName) {
+        if (!cancelled && !validateDisplayName(savedName)) {
+          setUserName(savedName)
+          setNameDraft(savedName)
+        } else if (!cancelled) {
+          window.localStorage.removeItem('pixel-user-name')
+          setNamePromptOpen(true)
+        }
+      } else {
+        try {
+          const response = await fetch('/api/user-profile', { cache: 'no-store' })
+          const data = response.ok ? await response.json() : null
+          if (!cancelled && typeof data?.name === 'string' && data.name.trim() && !validateDisplayName(data.name)) {
+            savedName = data.name.trim().slice(0, 50)
+            window.localStorage.setItem('pixel-user-name', savedName)
+            setUserName(savedName)
+            setNameDraft(savedName)
+          } else if (!cancelled) {
+            setNamePromptOpen(true)
+          }
+        } catch {
+          if (!cancelled) setNamePromptOpen(true)
+        }
+      }
+
+      if (!cancelled) setIdentityLoaded(true)
+    }
+
+    loadIdentity()
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     try {
@@ -496,6 +686,14 @@ export default function Home() {
     } finally {
       setPreferencesLoaded(true)
     }
+  }, [])
+
+  useEffect(() => {
+    try {
+      const enabled = window.localStorage.getItem(notificationsKey) === 'true'
+      setNotificationsEnabled(enabled && Notification.permission === 'granted')
+      if ('Notification' in window) setNotificationPermission(Notification.permission)
+    } catch {}
   }, [])
 
   useEffect(() => {
@@ -570,6 +768,43 @@ export default function Home() {
   }, [settingsOpen])
 
   useEffect(() => {
+    let cancelled = false
+    let lastProblem = ''
+
+    async function checkPixelHealth() {
+      try {
+        const response = await fetch('/api/diagnostics')
+        const data = await response.json().catch(() => ({}))
+        if (cancelled) return
+        setDiagnosticStatus(data.status || null)
+        if (data.healthy) {
+          lastProblem = ''
+          return
+        }
+        const problem = `${data.status?.ollama?.available ? '' : 'Ollama unavailable'}/${data.status?.ollama?.textModelInstalled ? 'model ready' : 'text model missing'}`
+        if (problem !== lastProblem) {
+          lastProblem = problem
+          setDiagnosticIssue(problem)
+          setDiagnosticOpen(true)
+        }
+      } catch {
+        if (!cancelled && 'Pixel health endpoint unavailable' !== lastProblem) {
+          lastProblem = 'Pixel health endpoint unavailable'
+          setDiagnosticIssue('The Pixel diagnostics endpoint could not be reached.')
+          setDiagnosticOpen(true)
+        }
+      }
+    }
+
+    void checkPixelHealth()
+    const interval = window.setInterval(checkPixelHealth, 30_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
     if (!mobileMenuOpen) return
     mobileSidebarRef.current?.focus()
 
@@ -592,7 +827,7 @@ export default function Home() {
     if (!chatHistoryLoaded || !activeConversationId) return
 
     const meaningfulMessages = messages.filter((message) => !(
-      message.role === 'assistant' && message.id === 1 && message.text?.includes("Hi! I'm Nova")
+      message.role === 'assistant' && message.id === 1 && message.text?.includes("Hi! I'm Pixel")
     ))
     const hasUserMessage = meaningfulMessages.some((message) => message.role === 'user')
 
@@ -618,7 +853,7 @@ export default function Home() {
         conversations: chatHistory,
       }))
     } catch {
-      setError((current) => current || 'Nova could not save chat history in this browser.')
+      setError((current) => current || 'Pixel could not save chat history in this browser.')
     }
   }, [chatHistory, activeConversationId, chatHistoryLoaded])
 
@@ -632,14 +867,21 @@ export default function Home() {
   useEffect(() => {
     if (!isTyping) {
       setThinkingMessageIndex(0)
+      setThinkingElapsed(0)
       return
     }
 
     const timer = window.setInterval(() => {
       setThinkingMessageIndex((current) => (current + 1) % thinkingMessages.length)
     }, 2600)
+    const elapsedTimer = window.setInterval(() => {
+      setThinkingElapsed((current) => current + 1)
+    }, 1000)
 
-    return () => window.clearInterval(timer)
+    return () => {
+      window.clearInterval(timer)
+      window.clearInterval(elapsedTimer)
+    }
   }, [isTyping])
 
   async function uploadDocument(file) {
@@ -781,6 +1023,7 @@ export default function Home() {
           model: selectedModel,
           codingMode: codeStudioOpen,
           webAccess: webAccessEnabled,
+          userName,
           language: codeLanguage === 'other'
             ? customCodeLanguage.trim()
             : codeLanguages.find(({ value }) => value === codeLanguage)?.label,
@@ -796,16 +1039,22 @@ export default function Home() {
 
       if (!response.ok) {
         throw new Error(
-          data?.error || `Nova request failed (HTTP ${response.status}). Please try again.`
+          data?.error || `Pixel request failed (HTTP ${response.status}). Please try again.`
         )
       }
       if (typeof data?.reply !== 'string' || !data.reply.trim()) {
-        throw new Error('Nova returned an empty or invalid response. Please try again.')
+        throw new Error('Pixel returned an empty or invalid response. Please try again.')
       }
 
       setMessages((current) => [
         ...current,
-        { id: Date.now() + 1, role: 'assistant', text: data.reply.trim() },
+        {
+          id: Date.now() + 1,
+          role: 'assistant',
+          text: data.reply.trim(),
+          sources: Array.isArray(data.sources) ? data.sources : [],
+          webImages: Array.isArray(data.images) ? data.images : [],
+        },
       ])
       if (codeStudioOpen) {
         const language = codeLanguage === 'other' ? customCodeLanguage : codeLanguage
@@ -815,11 +1064,11 @@ export default function Home() {
         setPreviewVersion((version) => version + 1)
       }
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : 'Could not reach Nova. Please try again.'
-      )
+      const message = requestError instanceof Error
+        ? requestError.message
+        : 'Could not reach Pixel. Please try again.'
+      setError(message)
+      void showPixelDiagnostics(message)
     } finally {
       setIsTyping(false)
     }
@@ -835,6 +1084,7 @@ export default function Home() {
     setMobileMenuOpen(false)
     setBrowserOpen(false)
     setMapsOpen(false)
+    setWeatherOpen(false)
     setLanguageTeacherOpen(false)
     setCreativeStudioMode(null)
     setCodeStudioOpen(false)
@@ -866,8 +1116,83 @@ export default function Home() {
     setAttachment(null)
     setIsUploading(false)
     setMobileMenuOpen(false)
+    setWeatherOpen(false)
     cancelEditingMessage()
     setError('')
+  }
+
+  function startPixel() {
+    resetChat()
+    setSettingsOpen(false)
+    setBrowserOpen(false)
+    setCreativeStudioMode(null)
+    setCodeStudioOpen(false)
+    setLanguageTeacherOpen(false)
+    setMapsOpen(false)
+    setWeatherOpen(false)
+    setMobileMenuOpen(false)
+
+    void (async () => {
+      try {
+        const response = await fetch('/api/server-control', { method: 'POST' })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data.error || 'Could not start Pixel.')
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Could not start Pixel.')
+      }
+    })()
+
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+      void document.documentElement.requestFullscreen().catch(() => {})
+    }
+    window.setTimeout(() => composerInputRef.current?.focus(), 80)
+  }
+
+  async function showPixelDiagnostics(issue) {
+    setDiagnosticIssue(issue || 'Pixel encountered an unexpected problem.')
+    setDiagnosticAnalysis(null)
+    setDiagnosticRepair(null)
+    setDiagnosticOpen(true)
+    try {
+      const response = await fetch('/api/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issue, execute: false }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'The diagnostics service could not analyze this problem.')
+      setDiagnosticStatus(data.status || null)
+      setDiagnosticAnalysis(data.analysis || null)
+    } catch (diagnosticError) {
+      setDiagnosticAnalysis({
+        summary: diagnosticError instanceof Error ? diagnosticError.message : 'Diagnostics could not run.',
+        action: 'none',
+      })
+    }
+  }
+
+  async function fixPixelAutomatically() {
+    setDiagnosticFixing(true)
+    setDiagnosticRepair(null)
+    try {
+      const response = await fetch('/api/diagnostics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issue: diagnosticIssue, execute: true }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'The automatic repair failed.')
+      setDiagnosticStatus(data.status || null)
+      setDiagnosticAnalysis(data.analysis || null)
+      setDiagnosticRepair(data.repair || null)
+    } catch (repairError) {
+      setDiagnosticRepair({
+        ok: false,
+        error: repairError instanceof Error ? repairError.message : 'The automatic repair failed.',
+      })
+    } finally {
+      setDiagnosticFixing(false)
+    }
   }
 
   function handleSubmit(event) {
@@ -917,7 +1242,7 @@ export default function Home() {
     setBrowserLoading(true)
     setBrowserError('')
     try {
-      const response = await fetch('/api/browser', {
+      const response = await fetch('/api/browser?sessionId=main', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, sessionId: 'main', ...extra }),
@@ -925,14 +1250,51 @@ export default function Home() {
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || `Browser action failed (HTTP ${response.status}).`)
       setBrowserScreenshot(data.screenshot || '')
-      setBrowserUrl(data.url || browserUrl)
-      setBrowserTitle(data.title || 'Nova browser')
+      if (action === 'navigate' && data.url && data.url !== 'about:blank') setBrowserUrl(data.url)
+      setBrowserTitle(data.title || 'Pixel browser')
       if (data.viewport?.width && data.viewport?.height) setBrowserViewport(data.viewport)
     } catch (browserRequestError) {
       setBrowserError(browserRequestError instanceof Error ? browserRequestError.message : 'Browser action failed.')
     } finally {
       setBrowserLoading(false)
     }
+  }
+
+  async function browserWheel(deltaY, clientX, clientY, element) {
+    if (browserMode !== 'web' || !element) return
+    const rect = element.getBoundingClientRect()
+    const aspect = browserViewport.width / browserViewport.height
+    const renderedWidth = Math.min(rect.width, rect.height * aspect)
+    const renderedHeight = Math.min(rect.height, rect.width / aspect)
+    const offsetX = (rect.width - renderedWidth) / 2
+    const offsetY = (rect.height - renderedHeight) / 2
+    const x = Math.max(0, Math.min(browserViewport.width, Math.round(((clientX - rect.left - offsetX) / renderedWidth) * browserViewport.width)))
+    const y = Math.max(0, Math.min(browserViewport.height, Math.round(((clientY - rect.top - offsetY) / renderedHeight) * browserViewport.height)))
+
+    try {
+      await fetch('/api/browser?sessionId=main', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'wheel', sessionId: 'main', x, y, deltaY }),
+      })
+    } catch {}
+  }
+
+  async function refreshBrowserSnapshot() {
+    if (browserMode !== 'web' || !browserOpen) return
+    try {
+      const response = await fetch('/api/browser?sessionId=main', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      })
+      if (!response.ok) return
+      const data = await response.json().catch(() => ({}))
+      if (data.screenshot) setBrowserScreenshot(data.screenshot)
+      if (data.title) setBrowserTitle(data.title)
+      if (data.viewport?.width && data.viewport?.height) setBrowserViewport(data.viewport)
+      setBrowserError('')
+    } catch {}
   }
 
   function startLanguageLesson() {
@@ -1017,14 +1379,108 @@ export default function Home() {
       setMapLoading(false)
       setMapZoom(15)
     }, () => {
-      setMapError('Nova could not access your location. Allow location access or search for a place.')
+      setMapError('Pixel could not access your location. Allow location access or search for a place.')
       setMapLoading(false)
     }, { enableHighAccuracy: true, timeout: 10000 })
   }
 
-  async function openBrowserWorkspace() {
+  async function loadWeather(location) {
+    setWeatherLoading(true)
+    setWeatherError('')
+    try {
+      const response = await fetch(`/api/weather?lat=${encodeURIComponent(location.lat)}&lon=${encodeURIComponent(location.lon)}`)
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Weather request failed.')
+      setWeatherData(data)
+      setWeatherLocation(location)
+    } catch (weatherRequestError) {
+      setWeatherError(weatherRequestError instanceof Error ? weatherRequestError.message : 'Could not load weather.')
+    } finally {
+      setWeatherLoading(false)
+    }
+  }
+
+  async function searchWeather(query = weatherQuery) {
+    const search = query.trim()
+    if (!search) return
+    setWeatherLoading(true)
+    setWeatherError('')
+    try {
+      const response = await fetch(`/api/maps?q=${encodeURIComponent(search)}&limit=6`)
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Location search failed.')
+      const results = Array.isArray(data.results) ? data.results : []
+      setWeatherResults(results)
+      if (!results.length) {
+        setWeatherError('No locations found. Try a city, country, island, or address.')
+        setWeatherLoading(false)
+        return
+      }
+      const first = results[0]
+      const location = {
+        lat: Number(first.lat),
+        lon: Number(first.lon),
+        name: first.display_name || first.name || search,
+      }
+      await loadWeather(location)
+      setWeatherQuery(location.name)
+    } catch (weatherSearchError) {
+      setWeatherError(weatherSearchError instanceof Error ? weatherSearchError.message : 'Location search failed.')
+      setWeatherLoading(false)
+    }
+  }
+
+  function selectWeatherResult(result) {
+    const location = {
+      lat: Number(result.lat),
+      lon: Number(result.lon),
+      name: result.display_name || result.name || weatherQuery,
+    }
+    if (!Number.isFinite(location.lat) || !Number.isFinite(location.lon)) return
+    setWeatherQuery(location.name)
+    setWeatherResults([])
+    loadWeather(location)
+  }
+
+  function openWeatherWorkspace() {
+    setWeatherOpen(true)
+    setMobileMenuOpen(false)
+    if (!weatherData) loadWeather(weatherLocation)
+  }
+
+  function useWeatherLocation() {
+    if (!navigator.geolocation) {
+      setWeatherError('Location access is not supported by this browser.')
+      return
+    }
+    setWeatherLoading(true)
+    navigator.geolocation.getCurrentPosition((position) => {
+      const location = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        name: 'My current location',
+      }
+      setWeatherQuery(location.name)
+      loadWeather(location)
+    }, () => {
+      setWeatherError('Pixel could not access your location.')
+      setWeatherLoading(false)
+    }, { enableHighAccuracy: true, timeout: 10000 })
+  }
+
+  async function openBrowserWorkspace(mode = 'web') {
     setBrowserOpen(true)
     setToolsMenuOpen(false)
+    setBrowserMode(mode)
+    setMobileMenuOpen(false)
+    if (mode === 'sandbox') {
+      setBrowserUrl('sandbox://pixel-code')
+      setBrowserTitle('Pixel Code Sandbox')
+      setBrowserError('')
+      setBrowserLoading(false)
+      return
+    }
+    if (browserUrl.startsWith('sandbox://')) setBrowserUrl('https://example.com')
     setBrowserLoading(true)
     setBrowserError('')
     try {
@@ -1036,14 +1492,30 @@ export default function Home() {
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || `Browser failed (HTTP ${response.status}).`)
       setBrowserScreenshot(data.screenshot || '')
-      setBrowserUrl(data.url || browserUrl)
-      setBrowserTitle(data.title || 'Nova browser')
+      if (data.url && data.url !== 'about:blank') setBrowserUrl(data.url)
+      setBrowserTitle(data.title || 'Pixel browser')
       if (data.viewport?.width && data.viewport?.height) setBrowserViewport(data.viewport)
     } catch (browserRequestError) {
       setBrowserError(browserRequestError instanceof Error ? browserRequestError.message : 'Browser failed.')
     } finally {
       setBrowserLoading(false)
     }
+  }
+
+  function openCodeSandbox() {
+    const sandboxDocument = buildCodeSandboxDocument(codeFile, codeLanguage)
+    if (!sandboxDocument) {
+      setCodeWorkspaceError('Pixel Code Sandbox supports HTML, CSS, and JavaScript.')
+      return
+    }
+    setBrowserSandboxHtml(sandboxDocument)
+    setBrowserMode('sandbox')
+    setBrowserUrl('sandbox://pixel-code')
+    setBrowserTitle('Pixel Code Sandbox')
+    setBrowserError('')
+    setBrowserOpen(true)
+    setCodeStudioOpen(false)
+    setPreviewVersion((version) => version + 1)
   }
 
   async function closeBrowserWorkspace() {
@@ -1067,7 +1539,7 @@ export default function Home() {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'image', prompt: creativePrompt, style: creativeStyle, ratio: creativeRatio, quality: creativeQuality }),
+          body: JSON.stringify({ mode: 'image', prompt: creativePrompt, style: creativeStyle, ratio: creativeRatio, quality: creativeQuality, accentColor: preferences.accentColor }),
         })
         if (!response.ok) {
           const data = await response.json().catch(() => ({}))
@@ -1133,7 +1605,7 @@ export default function Home() {
     setCodeWorkspaceError('')
     try {
       const context = await inspectRepository(false) || repoAgentContext
-      if (!context) throw new Error('Nova could not inspect the repository.')
+      if (!context) throw new Error('Pixel could not inspect the repository.')
       const script = context.scripts?.test ? 'test' : context.scripts?.build ? 'build' : null
       if (!script) throw new Error('No test or build script is configured in package.json.')
       setCodeAgentRunning(true)
@@ -1152,11 +1624,11 @@ export default function Home() {
     if (!instruction.trim() || codeAgentRunning) return
     setCodeAgentRunning(true)
     setCodeWorkspaceError('')
-    setCodeRunOutput('Nova is inspecting and editing the repository…')
+    setCodeRunOutput('Pixel is inspecting and editing the repository…')
 
     try {
       const context = await inspectRepository(false) || repoAgentContext
-      if (!context) throw new Error('Nova could not inspect the repository.')
+      if (!context) throw new Error('Pixel could not inspect the repository.')
 
       const readPaths = ['package.json', 'README.md', 'pages/index.js', 'pages/api/chat.js']
         .filter((file) => context.files.includes(file))
@@ -1205,13 +1677,13 @@ export default function Home() {
         const responseText = await response.text()
         let data
         try { data = responseText ? JSON.parse(responseText) : null } catch { data = null }
-        if (!response.ok) throw new Error(data?.error || `Nova request failed (HTTP ${response.status}).`)
-        if (typeof data?.reply !== 'string') throw new Error('Nova returned an invalid repository response.')
+        if (!response.ok) throw new Error(data?.error || `Pixel request failed (HTTP ${response.status}).`)
+        if (typeof data?.reply !== 'string') throw new Error('Pixel returned an invalid repository response.')
 
         finalReply = data.reply.trim()
-        const patch = extractNovaPatch(finalReply)
+        const patch = extractPixelPatch(finalReply)
         if (!patch?.length) {
-          throw new Error('Nova did not return a valid repository patch. Ask for a specific file change and try again.')
+          throw new Error('Pixel did not return a valid repository patch. Ask for a specific file change and try again.')
         }
 
         const patchResult = await requestCodeAgent('patch', { patch })
@@ -1266,7 +1738,7 @@ export default function Home() {
       ? customCodeLanguage.trim()
       : codeLanguages.find(({ value }) => value === codeLanguage)?.label
     if (!language) {
-      setCodeWorkspaceError('Enter the programming language you want Nova to use.')
+      setCodeWorkspaceError('Enter the programming language you want Pixel to use.')
       return
     }
     runRepositoryAgent(instruction)
@@ -1293,6 +1765,9 @@ export default function Home() {
     if (codeLanguage === 'html' || codeLanguage === 'css') {
       setCodeRunOutput('')
       setPreviewVersion((version) => version + 1)
+      if (browserOpen && browserMode === 'sandbox') {
+        setBrowserSandboxHtml(buildCodeSandboxDocument(codeFile, codeLanguage))
+      }
       return
     }
     if (codeLanguage !== 'javascript') {
@@ -1300,6 +1775,9 @@ export default function Home() {
       return
     }
 
+    if (browserOpen && browserMode === 'sandbox') {
+      setBrowserSandboxHtml(buildCodeSandboxDocument(codeFile, codeLanguage))
+    }
     stopCodeWorker()
     setCodeRunOutput('Running JavaScript in a temporary browser worker…')
 
@@ -1373,6 +1851,49 @@ export default function Home() {
     worker.postMessage(codeFile)
   }
 
+  useEffect(() => {
+    if (!browserOpen || browserMode !== 'web') return undefined
+    let cancelled = false
+    let refreshBusy = false
+    const refresh = async () => {
+      if (refreshBusy || cancelled) return
+      refreshBusy = true
+      try {
+        const response = await fetch('/api/browser?sessionId=main', {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+        })
+        if (!response.ok) {
+          if (!cancelled) setBrowserLive(false)
+          return
+        }
+        const data = await response.json().catch(() => ({}))
+        if (cancelled) return
+        setBrowserLive(true)
+        if (data.screenshot) setBrowserScreenshot(data.screenshot)
+        if (data.title) setBrowserTitle(data.title)
+        if (data.viewport?.width && data.viewport?.height) setBrowserViewport(data.viewport)
+      } catch {
+        if (!cancelled) setBrowserLive(false)
+      } finally {
+        refreshBusy = false
+      }
+    }
+    let frameId = null
+    const frameLoop = () => {
+      if (!cancelled) {
+        void refresh()
+        frameId = window.requestAnimationFrame(frameLoop)
+      }
+    }
+    frameId = window.requestAnimationFrame(frameLoop)
+    return () => {
+      cancelled = true
+      if (frameId) window.cancelAnimationFrame(frameId)
+    }
+  }, [browserOpen, browserMode])
+
   useEffect(() => () => {
     const activeWorker = codeWorkerRef.current
     if (activeWorker) {
@@ -1384,6 +1905,33 @@ export default function Home() {
 
   function updatePreferences(changes) {
     setPreferences((current) => ({ ...current, ...changes }))
+  }
+
+  async function saveUserName(event) {
+    event.preventDefault()
+    const nextName = nameDraft.trim().slice(0, 50)
+    if (!nextName) return
+    const validationError = validateDisplayName(nextName)
+    if (validationError) {
+      setNameError(validationError)
+      return
+    }
+    setNameError('')
+
+    try {
+      window.localStorage.setItem('pixel-user-name', nextName)
+    } catch {}
+
+    setUserName(nextName)
+    setNamePromptOpen(false)
+
+    try {
+      await fetch('/api/user-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nextName }),
+      })
+    } catch {}
   }
 
   function handleBackgroundImage(event) {
@@ -1414,7 +1962,22 @@ export default function Home() {
     reader.readAsDataURL(file)
   }
 
-  const shellStyle = { '--theme-accent': preferences.accentColor }
+  const accentColor = normalizeHexColor(preferences.accentColor)
+  const accentRgb = hexToRgb(accentColor)
+  const shellStyle = {
+    '--theme-accent': accentColor,
+    '--theme-accent-dark': mixHex(accentColor, '#111827', 0.42),
+    '--theme-accent-secondary': mixHex(accentColor, '#8b5cf6', 0.38),
+    '--theme-accent-border': mixHex(accentColor, '#d9efff', 0.18),
+    '--theme-accent-soft': mixHex(accentColor, '#070b14', 0.72),
+    '--theme-accent-glow': `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.16)`,
+    '--theme-accent-wash': `rgba(${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}, 0.08)`,
+    '--theme-accent-surface': mixHex(accentColor, '#ffffff', 0.86),
+    '--theme-accent-surface-strong': mixHex(accentColor, '#ffffff', 0.72),
+    '--theme-accent-contrast': getContrastTextColor(accentColor),
+    '--theme-shell': mixHex('#070b14', accentColor, 0.055),
+    '--theme-paper': mixHex('#09111e', accentColor, 0.075),
+  }
   const chatStyle = preferences.backgroundImage
     ? {
         backgroundImage: `linear-gradient(rgba(248, 244, 233, 0.2), rgba(248, 244, 233, 0.2)), url("${preferences.backgroundImage}")`,
@@ -1437,6 +2000,12 @@ export default function Home() {
   const codePreviewDocument = codeLanguage === 'html' || codeLanguage === 'css'
     ? buildStaticPreview(codeFile, codeLanguage)
     : ''
+  const thinkingIntensity = responseMode === 'deep' || selectedModel === 'nova-reasoning' || selectedModel === 'nova-madmax'
+    || webAccessEnabled || thinkingElapsed >= 20
+    ? 'high'
+    : responseMode === 'balanced' || webAccessEnabled || attachment || thinkingElapsed >= 8
+      ? 'active'
+      : 'fast'
 
   return (
     <main
@@ -1444,6 +2013,34 @@ export default function Home() {
       data-theme={preferences.theme}
       style={shellStyle}
     >
+      {namePromptOpen && (
+        <div className={styles.namePromptBackdrop} role="presentation">
+          <form className={styles.namePrompt} onSubmit={saveUserName}>
+            <div className={styles.namePromptMark}><img src="/pixel-logo.png" alt="" /></div>
+            <p>Welcome to Pixel</p>
+            <div className={styles.devTestingWarning} role="status">
+              Currently in Dev Testing
+            </div>
+            <h2>What should I call you?</h2>
+            <label htmlFor="pixel-user-name">Your name</label>
+            <input
+              id="pixel-user-name"
+              type="text"
+              value={nameDraft}
+              onChange={(event) => {
+                setNameDraft(event.target.value)
+                if (nameError) setNameError('')
+              }}
+              maxLength={50}
+              autoComplete="given-name"
+              autoFocus
+              placeholder="Enter your name"
+            />
+            {nameError && <p className={styles.nameError} role="alert">{nameError}</p>}
+            <button type="submit" disabled={!nameDraft.trim()}>Continue</button>
+          </form>
+        </div>
+      )}
       {mobileMenuOpen && (
         <button
           className={styles.mobileMenuScrim}
@@ -1460,8 +2057,8 @@ export default function Home() {
         aria-label="Main navigation"
       >
         <div className={styles.brand}>
-          <div className={styles.brandMark}><img src="/nova-logo.png" alt="Nova logo" /></div>
-          <span>Nova</span>
+          <div className={styles.brandMark}><img src="/pixel-logo.png" alt="Pixel logo" /></div>
+          <span>Pixel</span>
         </div>
         <button
           className={styles.mobileSidebarClose}
@@ -1514,7 +2111,9 @@ export default function Home() {
           <button type="button" onClick={() => { setCodeStudioOpen(true); setMobileMenuOpen(false) }}><Code2 size={17} /><span>Code mode</span><small>Editor</small></button>
           <button type="button" onClick={() => { setLanguageTeacherOpen(true); setMobileMenuOpen(false) }}><Languages size={17} /><span>Language Learner</span><small>All languages</small></button>
           <button type="button" onClick={() => { openBrowserWorkspace(); setMobileMenuOpen(false) }}><Globe2 size={17} /><span>Web browser</span><small>View &amp; control</small></button>
+          <button type="button" onClick={() => openBrowserWorkspace('sandbox')}><Box size={17} /><span>Sandbox</span><small>Windows-style preview</small></button>
           <button type="button" onClick={() => { setMapsOpen(true); setMobileMenuOpen(false) }}><MapPin size={17} /><span>Maps</span><small>Explore places</small></button>
+          <button type="button" onClick={openWeatherWorkspace}><CloudSun size={17} /><span>Weather</span><small>Anywhere on Earth</small></button>
         </nav>
         <div className={styles.sidebarFooter}>
           <div className={styles.presence}><span /></div>
@@ -1580,6 +2179,15 @@ export default function Home() {
           </div>
           <div className={styles.headerActions}>
             <button
+              className={styles.startPixelButton}
+              type="button"
+              onClick={startPixel}
+              aria-label="Start Pixel"
+            >
+              <Play size={16} fill="currentColor" />
+              <span>Start Pixel</span>
+            </button>
+            <button
               ref={settingsButtonRef}
               className={styles.settingsButton}
               type="button"
@@ -1587,7 +2195,7 @@ export default function Home() {
               aria-expanded={settingsOpen}
               aria-controls="nova-settings"
             >
-              <span className={styles.novaMark} aria-hidden="true"><img src="/nova-logo.png" alt="" /></span>
+              <span className={styles.novaMark} aria-hidden="true"><img src="/pixel-logo.png" alt="" /></span>
               <Settings2 size={17} /> Settings
             </button>
             <button className={styles.reset} type="button" onClick={resetChat} aria-label="Reset conversation">
@@ -1601,7 +2209,7 @@ export default function Home() {
             <section className={styles.welcome}>
               <div className={styles.welcomeIcon}><Sparkles size={25} /></div>
               <p className={styles.welcomeEyebrow}>Your study companion</p>
-              <h2>What would you like to explore?</h2>
+              <h2>{userName ? `Hello ${userName}, what would you like to explore?` : 'What would you like to explore?'}</h2>
               <p className={styles.welcomeDescription}>
                 Ask a question, work through a tricky idea, or start with one of these.
               </p>
@@ -1655,6 +2263,44 @@ export default function Home() {
                       {message.role === 'assistant'
                         ? <AssistantContent text={message.displayText || message.text} copyText={(value) => navigator.clipboard?.writeText(value)} />
                         : <p>{message.displayText || message.text}</p>}
+                      {message.role === 'assistant' && message.sources?.length > 0 && (
+                        <section className={styles.webSources} aria-label="Web sources">
+                          <strong>Sources</strong>
+                          <div className={styles.webSourceList}>
+                            {message.sources.slice(0, 5).map((source, sourceIndex) => (
+                              <a
+                                key={`${source.url}-${sourceIndex}`}
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={source.snippet || source.title}
+                              >
+                                <span>{sourceIndex + 1}</span>
+                                <small>{source.title || source.url}</small>
+                              </a>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+                      {message.role === 'assistant' && message.webImages?.length > 0 && (
+                        <section className={styles.webImages} aria-label="Relevant web images">
+                          <strong>Relevant images</strong>
+                          <div className={styles.webImageList}>
+                            {message.webImages.slice(0, 2).map((image, imageIndex) => (
+                              <a
+                                key={`${image.url}-${imageIndex}`}
+                                href={image.pageUrl || image.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={image.title || 'Open image source'}
+                              >
+                                <img src={image.url} alt={image.title || 'Relevant web image'} />
+                                <small>Source {imageIndex + 1}</small>
+                              </a>
+                            ))}
+                          </div>
+                        </section>
+                      )}
                       {message.attachmentImageUrl && (
                         <img
                           className={styles.generatedImage}
@@ -1689,12 +2335,23 @@ export default function Home() {
             {isTyping && (
               <div className={`${styles.message} ${styles.assistant}`}>
                 <div className={styles.tinyAvatar}><Sparkles size={14} /></div>
-                <div className={styles.typing} role="status" aria-live="polite" aria-atomic="true">
+                <div className={`${styles.typing} ${styles[`typing${thinkingIntensity[0].toUpperCase()}${thinkingIntensity.slice(1)}`]}`} role="status" aria-live="polite" aria-atomic="true">
                   <span className={styles.typingDots} aria-hidden="true">
                     <span /><span /><span />
                   </span>
-                  <span className={styles.thinkingMessage}>
-                    {thinkingMessages[thinkingMessageIndex]}
+                  <span className={styles.thinkingCopy}>
+                    <span className={styles.thinkingMessage}>{thinkingMessages[thinkingMessageIndex]}</span>
+                    <span className={styles.thinkingMeta}>
+                      {thinkingElapsed < 1
+                        ? 'Starting up'
+                        : thinkingElapsed < 8
+                          ? 'Reasoning through the request'
+                          : thinkingElapsed < 20
+                            ? 'Checking and refining'
+                            : 'This is taking a little longer'}
+                      <span aria-hidden="true"> · </span>
+                      <time>{thinkingElapsed}s</time>
+                    </span>
                   </span>
                 </div>
               </div>
@@ -1739,11 +2396,11 @@ export default function Home() {
               )}
             </div>
           )}
-          <div className={styles.composer}>
+          <div className={`${styles.composer} ${styles[`composerThinking${thinkingIntensity[0].toUpperCase()}${thinkingIntensity.slice(1)}`]}`}>
             <textarea
               ref={composerInputRef}
-              aria-label="Message Nova"
-              placeholder="Message Nova..."
+              aria-label="Message Pixel"
+              placeholder="Message Pixel..."
               rows="1"
               value={draft}
               maxLength={20_000}
@@ -1773,10 +2430,15 @@ export default function Home() {
                   <button type="button" onClick={() => { fileInputRef.current?.click(); setToolsMenuOpen(false) }}>
                     <Paperclip size={17} /><span><strong>Add files</strong><small>Images, PDFs, documents</small></span>
                   </button>
-                  <button type="button" onClick={() => { setResponseMode('deep'); setSelectedModel('nova-reasoning'); setWebAccessEnabled(true); setToolsMenuOpen(false) }}>
+                  <button
+                    type="button"
+                    className={responseMode === 'deep' ? styles.toolsMenuActive : ''}
+                    aria-pressed={responseMode === 'deep'}
+                    onClick={() => { setResponseMode('deep'); setSelectedModel('nova-reasoning'); setToolsMenuOpen(false) }}
+                  >
                     <Microscope size={17} /><span><strong>Deep research</strong><small>Read webpages and reason carefully</small></span>
                   </button>
-                  <button type="button" aria-pressed={webAccessEnabled} onClick={() => { setWebAccessEnabled((enabled) => !enabled); setToolsMenuOpen(false) }}>
+                  <button type="button" className={webAccessEnabled ? styles.toolsMenuActive : ''} aria-pressed={webAccessEnabled} onClick={() => { setWebAccessEnabled((enabled) => !enabled); setToolsMenuOpen(false) }}>
                     <Globe2 size={17} /><span><strong>Web access</strong><small>{webAccessEnabled ? 'Enabled for the next URL' : 'Read URLs in your message'}</small></span>
                   </button>
                 </div>
@@ -1798,9 +2460,11 @@ export default function Home() {
               type="button"
               onClick={() => setWebAccessEnabled((enabled) => !enabled)}
               aria-pressed={webAccessEnabled}
-              title="Let Nova read public webpage URLs included in your message"
+              title="Let Pixel read public webpage URLs included in your message"
             >
-              <Globe2 size={16} /> Web access
+              <Globe2 size={16} />
+              <span>Web access</span>
+              <span className={styles.toggleStatus}>{webAccessEnabled ? 'On' : 'Off'}</span>
             </button>
             <button
               className={`${styles.researchButton} ${responseMode === 'deep' ? styles.researchButtonActive : ''}`}
@@ -1812,7 +2476,9 @@ export default function Home() {
               }}
               aria-pressed={responseMode === 'deep'}
             >
-              <Search size={16} /> Deep research
+              <Search size={16} />
+              <span>Deep research</span>
+              <span className={styles.toggleStatus}>{responseMode === 'deep' ? 'On' : 'Off'}</span>
             </button>
             <button
               className={styles.sendButton}
@@ -1832,7 +2498,7 @@ export default function Home() {
         </form>
       </section>
       {languageTeacherOpen && (
-        <section className={styles.languageTeacher} role="dialog" aria-modal="true" aria-label="Nova Language Learner">
+        <section className={styles.languageTeacher} role="dialog" aria-modal="true" aria-label="Pixel Language Learner">
           <header className={styles.languageTeacherHeader}>
             <button
               type="button"
@@ -1924,8 +2590,98 @@ export default function Home() {
           )}
         </section>
       )}
+      {weatherOpen && (
+        <section className={styles.weatherWorkspace} role="dialog" aria-modal="true" aria-label="Pixel Weather">
+          <header className={styles.weatherHeader}>
+            <button type="button" onClick={() => setWeatherOpen(false)} aria-label="Close Weather"><X size={20} /></button>
+            <form className={styles.weatherSearch} onSubmit={(event) => { event.preventDefault(); searchWeather() }}>
+              <Search size={17} />
+              <input value={weatherQuery} onChange={(event) => setWeatherQuery(event.target.value)} placeholder="Search a city anywhere on Earth" aria-label="Search weather" />
+              <button type="submit" disabled={weatherLoading}>{weatherLoading ? 'Loading...' : 'Search'}</button>
+            </form>
+            <button type="button" className={styles.weatherLocateButton} onClick={useWeatherLocation} disabled={weatherLoading}><LocateFixed size={16} /> My location</button>
+          </header>
+          <div className={styles.weatherBody}>
+            {weatherError && <p className={styles.weatherError} role="alert">{weatherError}</p>}
+            {weatherResults.length > 0 && (
+              <div className={styles.weatherResults}>
+                {weatherResults.map((result) => (
+                  <button type="button" key={`${result.place_id}-${result.lat}-${result.lon}`} onClick={() => selectWeatherResult(result)}>
+                    <MapPin size={15} />
+                    <span><strong>{result.name || result.display_name?.split(',')[0]}</strong><small>{result.display_name}</small></span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {weatherLoading && !weatherData && <div className={styles.weatherLoading}>Loading worldwide weather...</div>}
+            {weatherData?.current && (
+              <div className={styles.weatherContent}>
+                <section className={styles.weatherCurrent}>
+                  <div>
+                    <span className={styles.weatherEyebrow}>CURRENT WEATHER</span>
+                    <h1>{weatherLocation.name}</h1>
+                    <p>{weatherData.timezone_abbreviation || weatherData.timezone || 'Local time'}</p>
+                  </div>
+                  <div className={styles.weatherCurrentMain}>
+                    <div className={styles.weatherMainIcon}>{getWeatherIcon(weatherData.current.weather_code, weatherData.current.is_day)}</div>
+                    <strong>{Math.round(weatherData.current.temperature_2m)}°</strong>
+                    <div>
+                      <span>{getWeatherDescription(weatherData.current.weather_code)}</span>
+                      <small>Feels like {Math.round(weatherData.current.apparent_temperature)}°</small>
+                    </div>
+                  </div>
+                  <div className={styles.weatherStats}>
+                    <div><Thermometer size={18} /><span><small>Feels like</small><strong>{Math.round(weatherData.current.apparent_temperature)}°C</strong></span></div>
+                    <div><Droplets size={18} /><span><small>Humidity</small><strong>{weatherData.current.relative_humidity_2m}%</strong></span></div>
+                    <div><Wind size={18} /><span><small>Wind</small><strong>{Math.round(weatherData.current.wind_speed_10m)} km/h</strong></span></div>
+                    <div><Cloud size={18} /><span><small>Cloud cover</small><strong>{weatherData.current.cloud_cover}%</strong></span></div>
+                    <div><Droplets size={18} /><span><small>Precipitation</small><strong>{weatherData.current.precipitation} mm</strong></span></div>
+                    <div><Sun size={18} /><span><small>Pressure</small><strong>{Math.round(weatherData.current.surface_pressure)} hPa</strong></span></div>
+                  </div>
+                </section>
+                <section className={styles.weatherHourly}>
+                  <div className={styles.weatherSectionTitle}><span>Hourly forecast</span><small>{weatherData.timezone || ''}</small></div>
+                  <div className={styles.weatherHourlyList}>
+                    {weatherData.hourly.time.slice(0, 12).map((time, index) => (
+                      <article key={time}>
+                        <small>{index === 0 ? 'Now' : new Date(time).toLocaleTimeString([], { hour: 'numeric' })}</small>
+                        <div>{getWeatherIcon(weatherData.hourly.weather_code[index], true)}</div>
+                        <strong>{Math.round(weatherData.hourly.temperature_2m[index])}°</strong>
+                        <span><Droplets size={11} /> {weatherData.hourly.precipitation_probability[index] ?? 0}%</span>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className={styles.weatherDaily}>
+                  <div className={styles.weatherSectionTitle}><span>7-day forecast</span></div>
+                  <div className={styles.weatherDailyList}>
+                    {weatherData.daily.time.map((date, index) => (
+                      <article key={date}>
+                        <div>
+                          <strong>{index === 0 ? 'Today' : new Date(`${date}T12:00:00`).toLocaleDateString([], { weekday: 'long' })}</strong>
+                          <small>{new Date(`${date}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}</small>
+                        </div>
+                        <div className={styles.weatherDayIcon}>{getWeatherIcon(weatherData.daily.weather_code[index])}</div>
+                        <div className={styles.weatherDayTemps}>
+                          <strong>{Math.round(weatherData.daily.temperature_2m_max[index])}°</strong>
+                          <span>{Math.round(weatherData.daily.temperature_2m_min[index])}°</span>
+                        </div>
+                        <div className={styles.weatherDayRain}><Droplets size={13} /> {weatherData.daily.precipitation_probability_max[index] ?? 0}%</div>
+                        <div className={styles.weatherDaySun}>
+                          <span><Sunrise size={14} /> {weatherData.daily.sunrise[index]?.slice(11, 16)}</span>
+                          <span><Sunset size={14} /> {weatherData.daily.sunset[index]?.slice(11, 16)}</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
       {mapsOpen && (
-        <section className={styles.mapsWorkspace} role="dialog" aria-modal="true" aria-label="Nova Maps">
+        <section className={styles.mapsWorkspace} role="dialog" aria-modal="true" aria-label="Pixel Maps">
           <header className={styles.mapsHeader}>
             <button type="button" onClick={() => setMapsOpen(false)} aria-label="Close Maps"><X size={20} /></button>
             <form className={styles.mapsSearch} onSubmit={(event) => { event.preventDefault(); searchMap() }}>
@@ -1964,37 +2720,57 @@ export default function Home() {
         </section>
       )}
       {browserOpen && (
-        <section className={styles.browserWorkspace} role="dialog" aria-modal="true" aria-label="Nova browser workspace">
+        <section className={styles.browserWorkspace} role="dialog" aria-modal="true" aria-label="Pixel browser workspace">
           <header className={styles.browserHeader}>
             <button type="button" onClick={closeBrowserWorkspace} aria-label="Close browser workspace"><X size={20} /></button>
             <div className={styles.browserAddressRow}>
-              <button type="button" onClick={() => browserAction('back')} aria-label="Browser back"><ArrowDownToLine size={16} className={styles.browserBackIcon} /></button>
-              <form onSubmit={(event) => { event.preventDefault(); browserAction('navigate', { url: browserUrl }) }}>
+              <button type="button" disabled={browserMode === 'sandbox'} onClick={() => browserAction('back')} aria-label="Browser back"><ArrowDownToLine size={16} className={styles.browserBackIcon} /></button>
+              <form onSubmit={(event) => { event.preventDefault(); if (browserMode !== 'sandbox') browserAction('navigate', { url: browserUrl }) }}>
                 <Globe2 size={16} />
-                <input value={browserUrl} onChange={(event) => setBrowserUrl(event.target.value)} aria-label="Web address" spellCheck="false" />
+                <input value={browserUrl} onChange={(event) => { if (browserMode !== 'sandbox') setBrowserUrl(event.target.value) }} readOnly={browserMode === 'sandbox'} aria-label="Web address" spellCheck="false" />
               </form>
-              <button type="button" onClick={() => browserAction('reload')} aria-label="Reload webpage"><RotateCcw size={16} /></button>
+              <button type="button" disabled={browserMode === 'sandbox'} onClick={() => browserAction('reload')} aria-label="Reload webpage"><RotateCcw size={16} /></button>
             </div>
-            <strong>{browserTitle}</strong>
+            <div className={styles.browserModeTabs} role="tablist" aria-label="Browser mode">
+              <button type="button" role="tab" aria-selected={browserMode === 'web'} className={browserMode === 'web' ? styles.browserModeActive : ''} onClick={() => openBrowserWorkspace('web')}>Web {browserLive && <span className={styles.browserLiveDot} aria-label="Live" title="Live" />}</button>
+              <button type="button" role="tab" aria-selected={browserMode === 'sandbox'} className={browserMode === 'sandbox' ? styles.browserModeActive : ''} onClick={() => openBrowserWorkspace('sandbox')}>Sandbox</button>
+            </div>
           </header>
           <div className={styles.browserBody}>
             <aside className={styles.browserControls}>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('reload')}><RotateCcw size={16} /> Reload</button>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('back')}><ArrowDownToLine size={16} className={styles.browserBackIcon} /> Back</button>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('forward')}>Forward</button>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('scroll', { y: 600 })}>Scroll down</button>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('scroll', { y: -600 })}>Scroll up</button>
-              <form className={styles.browserTypeForm} onSubmit={(event) => { event.preventDefault(); if (!browserTypingDraft) return; browserAction('type', { text: browserTypingDraft }); setBrowserTypingDraft('') }}>
-                <label><span>Type into the selected page field</span><input type="text" value={browserTypingDraft} onChange={(event) => setBrowserTypingDraft(event.target.value)} placeholder="Click a field, then type" /></label>
-                <button type="submit" disabled={!browserTypingDraft || browserLoading}>Type</button>
-              </form>
-              <button type="button" disabled={browserLoading} onClick={() => browserAction('press', { key: 'Enter' })}>Press Enter</button>
-              <p className={styles.browserHint}>Click a search or text field on the page, then use the typing box or your keyboard.</p>
+              {browserMode === 'sandbox' ? (
+                <>
+                  <div className={styles.sandboxStatus}><span /> Isolated preview</div>
+                  <button type="button" onClick={() => setBrowserSandboxHtml(buildDefaultSandboxDocument())}><RotateCcw size={16} /> Reset sandbox</button>
+                  <button type="button" onClick={() => { setCodeStudioOpen(true); setBrowserOpen(false) }}><Code2 size={16} /> Open in Pixel Code</button>
+                  <button type="button" disabled={!canPreviewCode && codeLanguage !== 'javascript'} onClick={openCodeSandbox}><Play size={16} /> Run current code</button>
+                  <p className={styles.browserHint}>HTML, CSS, and JavaScript run inside an isolated iframe with network access restricted by policy.</p>
+                </>
+              ) : (
+                <>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('reload')}><RotateCcw size={16} /> Reload</button>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('back')}><ArrowDownToLine size={16} className={styles.browserBackIcon} /> Back</button>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('forward')}>Forward</button>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('scroll', { y: 600 })}>Scroll down</button>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('scroll', { y: -600 })}>Scroll up</button>
+                  <form className={styles.browserTypeForm} onSubmit={(event) => { event.preventDefault(); if (!browserTypingDraft) return; browserAction('type', { text: browserTypingDraft }); setBrowserTypingDraft('') }}>
+                    <label><span>Type into the selected page field</span><input type="text" value={browserTypingDraft} onChange={(event) => setBrowserTypingDraft(event.target.value)} placeholder="Click a field, then type" /></label>
+                    <button type="submit" disabled={!browserTypingDraft || browserLoading}>Type</button>
+                  </form>
+                  <button type="button" disabled={browserLoading} onClick={() => browserAction('press', { key: 'Enter' })}>Press Enter</button>
+                  <p className={styles.browserHint}>Click a search or text field on the page, then use the typing box or your keyboard.</p>
+                </>
+              )}
               {browserError && <p className={styles.creationError}>{browserError}</p>}
             </aside>
             <div
               className={styles.browserViewport}
               tabIndex="0"
+              onWheelCapture={(event) => {
+                if (browserMode !== 'web') return
+                event.preventDefault()
+                browserWheel(event.deltaY, event.clientX, event.clientY, event.currentTarget.querySelector('img'))
+              }}
               onKeyDown={(event) => {
                 if (event.target !== event.currentTarget) return
                 if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -2006,7 +2782,33 @@ export default function Home() {
                 }
               }}
             >
-              {browserScreenshot ? (
+              {browserMode === 'sandbox' ? (
+                <div className={styles.windowsSandbox}>
+                  <div className={styles.windowsWallpaper}>
+                    <div className={styles.windowsDesktopIcon}><Code2 size={20} /><span>Pixel Code</span></div>
+                    <section className={styles.windowsAppWindow} role="application" aria-label="Pixel Code sandbox preview">
+                      <div className={styles.windowsTitleBar}>
+                        <span><Code2 size={14} /> {browserTitle}</span>
+                        <div><button type="button" aria-label="Minimize sandbox">—</button><button type="button" aria-label="Maximize sandbox">□</button><button type="button" aria-label="Close sandbox" onClick={closeBrowserWorkspace}>×</button></div>
+                      </div>
+                      <iframe
+                        key={`${previewVersion}-${browserMode}`}
+                        className={styles.windowsPreviewFrame}
+                        title="Pixel Code isolated sandbox preview"
+                        sandbox="allow-scripts allow-modals allow-forms"
+                        srcDoc={browserSandboxHtml}
+                      />
+                    </section>
+                  </div>
+                  <div className={styles.windowsTaskbar}>
+                    <button type="button" aria-label="Start Pixel Sandbox"><img src="/pixel-logo.png" alt="" /></button>
+                    <span className={styles.windowsSearch}>Search</span>
+                    <button type="button" aria-label="Pixel browser" className={styles.windowsTaskButton}><Globe2 size={16} /></button>
+                    <button type="button" aria-label="Pixel Code" className={styles.windowsTaskButton} onClick={() => { setCodeStudioOpen(true); setBrowserOpen(false) }}><Code2 size={16} /></button>
+                    <span className={styles.windowsClock}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                </div>
+              ) : browserScreenshot ? (
                 <img
                   src={browserScreenshot}
                   alt={`Browser view of ${browserTitle}`}
@@ -2036,7 +2838,7 @@ export default function Home() {
                   }}
                 />
               ) : (
-                <div className={styles.browserBlank}>{browserLoading ? 'Nova is opening the browser...' : 'Enter an address to begin'}</div>
+                <div className={styles.browserBlank}>{browserLoading ? 'Pixel is opening the browser...' : 'Enter an address to begin'}</div>
               )}
               {browserLoading && <div className={styles.browserLoading}>Loading...</div>}
             </div>
@@ -2049,11 +2851,11 @@ export default function Home() {
             <button type="button" onClick={() => setCreativeStudioMode(null)} aria-label="Close creation workspace"><X size={20} /></button>
             <div>
               <span>{creativeStudioMode === 'image' ? 'Image' : creativeStudioMode === 'music' ? 'Music' : creativeStudioMode === '3d' ? '3D' : 'Video'} studio</span>
-              <strong>Create with Nova</strong>
+              <strong>Create with Pixel</strong>
             </div>
           </header>
           <div className={styles.creationCanvas}>
-            <div className={styles.creationPreview}>
+            <div className={`${styles.creationPreview} ${creativeStudioMode === 'image' && /\b(chart|graph|plot|bar|line|pie|scatter|histogram)\b/i.test(creativePrompt) ? styles.creationChartPreview : ''}`}>
               {creativeResult?.mode === creativeStudioMode && creativeResult?.type === 'image' && <img className={styles.generatedImage} src={creativeResult.url} alt={creativePrompt} />}
               {creativeResult?.mode === creativeStudioMode && creativeResult?.type === 'audio' && <audio className={styles.generatedAudio} controls src={creativeResult.url} />}
               {creativeResult?.mode === creativeStudioMode && creativeResult?.type === 'video' && <video className={styles.generatedVideo} controls src={creativeResult.url} />}
@@ -2086,12 +2888,13 @@ export default function Home() {
       {codeStudioOpen && (
         <section className={styles.codeStudio} role="dialog" aria-modal="true" aria-label="Code workspace">
           <header className={styles.simpleIdeHeader}>
-            <div><span className={styles.ideLogo}><img src="/nova-logo.png" alt="Nova" /></span><strong>Nova Code</strong></div>
+            <div><span className={styles.ideLogo}><img src="/pixel-logo.png" alt="Pixel" /></span><strong>Pixel Code</strong></div>
             <div className={styles.simpleIdeActions}>
             <button type="button" onClick={() => navigator.clipboard?.writeText(codeFile)} disabled={!codeFile}><Copy size={15} /> Copy</button>
             <button type="button" onClick={() => downloadCode(codeLanguage === 'other' ? customCodeLanguage : codeLanguage, codeFile, 0)} disabled={!codeFile}><ArrowDownToLine size={15} /> Download</button>
             <button type="button" onClick={() => inspectRepository(true)} disabled={codeAgentRunning}><Search size={15} /> Inspect repo</button>
             <button type="button" onClick={runRepositoryValidation} disabled={codeAgentRunning}><Play size={15} /> Test repo</button>
+            <button type="button" onClick={openCodeSandbox} disabled={!codeFile.trim() || isTyping || (!canPreviewCode && codeLanguage !== 'javascript')}><Box size={15} /> Sandbox</button>
             <button type="button" className={styles.runButton} onClick={runCode} disabled={!codeFile.trim() || isTyping} title={canPreviewCode ? 'Run or preview this code' : 'Get local setup guidance'}><Play size={15} /> Run / Preview</button>
               <button type="button" className={styles.simpleIdeClose} onClick={() => { stopCodeWorker(); setCodeStudioOpen(false) }} aria-label="Close code workspace"><X size={18} /></button>
             </div>
@@ -2128,7 +2931,7 @@ export default function Home() {
               ? 'Repository agent is inspecting, patching, and validating…'
               : repoAgentContext
                 ? `Repository ready · ${repoAgentContext.files?.length || 0} files · ${Object.keys(repoAgentContext.scripts || {}).length} scripts`
-                : 'Repository agent · Ask Nova to edit files, run tests, and repair failures.'}
+                : 'Repository agent · Ask Pixel to edit files, run tests, and repair failures.'}
             </span>
           </div>
           <div className={styles.simpleEditorTab}>
@@ -2142,10 +2945,10 @@ export default function Home() {
               event.preventDefault()
               runCode()
             }
-            }} spellCheck="false" aria-label={`${activeCodeLanguage || 'Code'} editor`} placeholder={`Write ${activeCodeLanguage || 'code'} here, or ask Nova below to generate it…`} />
+            }} spellCheck="false" aria-label={`${activeCodeLanguage || 'Code'} editor`} placeholder={`Write ${activeCodeLanguage || 'code'} here, or ask Pixel below to generate it…`} />
           </div>
           <div className={styles.simplePreviewPane}>
-            {codeLanguage === 'javascript' || (repoAgentContext && /^(?:\$ npm|Applied |Nova is inspecting|Running npm)/m.test(codeRunOutput)) ? (
+            {codeLanguage === 'javascript' || (repoAgentContext && /^(?:\$ npm|Applied |Pixel is inspecting|Running npm)/m.test(codeRunOutput)) ? (
             <pre className={styles.codeRunOutput} aria-live="polite">
               {codeRunOutput || (codeLanguage === 'javascript' ? 'Run JavaScript to see its console output here.' : 'Repository validation output will appear here.')}
             </pre>
@@ -2153,7 +2956,7 @@ export default function Home() {
             <iframe
               key={previewVersion}
               className={styles.livePreview}
-              title={`Nova ${activeCodeLanguage} preview`}
+              title={`Pixel ${activeCodeLanguage} preview`}
               sandbox=""
               srcDoc={codePreviewDocument}
             />
@@ -2161,13 +2964,13 @@ export default function Home() {
             <div className={styles.codeRunGuidance} role="status">
               <Code2 size={26} />
               <strong>{activeCodeLanguage || 'Choose a language'}</strong>
-              <p>{codeNotes || 'This language needs a local or project runtime. Ask Nova for the setup and run commands for your code.'}</p>
+              <p>{codeNotes || 'This language needs a local or project runtime. Ask Pixel for the setup and run commands for your code.'}</p>
             </div>
             )}
           </div>
           <form className={styles.simpleIdePrompt} onSubmit={(event) => { event.preventDefault(); applyCodeInstruction() }}>
             <WandSparkles size={17} />
-            <input value={codeInstruction} onChange={(event) => setCodeInstruction(event.target.value)} placeholder={`Ask Nova to write or edit ${activeCodeLanguage || 'code'}...`} aria-label="Ask Nova to write or edit code" />
+            <input value={codeInstruction} onChange={(event) => setCodeInstruction(event.target.value)} placeholder={`Ask Pixel to write or edit ${activeCodeLanguage || 'code'}...`} aria-label="Ask Pixel to write or edit code" />
             <button type="submit" disabled={!codeInstruction.trim() || isTyping || (codeLanguage === 'other' && !customCodeLanguage.trim())} aria-label="Generate or edit code"><ArrowUp size={18} /></button>
           </form>
           {codeWorkspaceError && <p className={styles.codeWorkspaceError} role="alert">{codeWorkspaceError}</p>}
@@ -2193,7 +2996,7 @@ export default function Home() {
             <div className={styles.settingsHeading}>
               <div>
                 <h2 id="settings-title">Appearance</h2>
-                <p>Personalize Nova on this device.</p>
+                <p>Personalize Pixel on this device.</p>
               </div>
               <button
                 className={styles.settingsClose}
@@ -2202,6 +3005,23 @@ export default function Home() {
                 aria-label="Close settings"
               >
                 <X size={19} />
+              </button>
+            </div>
+            <div className={styles.profileSetting}>
+              <div>
+                <span>Your name</span>
+                <strong>{userName || 'Not set'}</strong>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(userName)
+                  setNameError('')
+                  setSettingsOpen(false)
+                  setNamePromptOpen(true)
+                }}
+              >
+                Change Your Name
               </button>
             </div>
             <label className={styles.settingField}>
@@ -2229,7 +3049,7 @@ export default function Home() {
                 checked={preferences.animateBackground}
                 onChange={(event) => updatePreferences({ animateBackground: event.target.checked })}
               />
-              <span>Animate notebook background</span>
+              <span>Accent rave pulse</span>
             </label>
             <div className={styles.providerSettings}>
               <span>Generation providers</span>
@@ -2288,7 +3108,7 @@ export default function Home() {
     </main>
   )
 }
-const generateText = async (userPrompt) => {
+const generateTextDuplicate = async (userPrompt) => {
   try {
     const response = await fetch('https://pollinations.ai', {
       method: 'POST',
